@@ -119,15 +119,12 @@ def send_message(conversation_id):
         # Create response
         response = {
             'role': 'assistant',
-            'content': result['response']
+            'content': result['enhanced_response']  # FIXED: use correct key
         }
         
         # Add product details if available
-        if result['product_id'] and result['product_details']:
-            response['product'] = {
-                'id': result['product_id'],
-                'details': result['product_details']
-            }
+        if result['products']:  # FIXED: use correct key
+            response['products'] = result['products']  # FIXED: use correct structure
         
         # Add response to conversation
         conversations[conversation_id].append(response)
@@ -159,7 +156,7 @@ def search_products():
     # For now, just return some random products from the metadata
     # In a real implementation, you would use a search index or database
     products = []
-    for product_id, product in list(recommender.product_metadata.items())[:10]:
+    for product_id, product in list(recommender.product_lookup.items())[:10]:
         products.append({
             'id': product_id,
             'details': product

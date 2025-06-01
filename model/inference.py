@@ -58,50 +58,30 @@ class ProductRecommender:
         
         # Load model and tokenizer
         print(f"Loading model from {model_path}")
-        
-        # Check if this is a PEFT model by looking for adapter files
-        is_peft_model = os.path.exists(os.path.join(model_path, "adapter_config.json"))
-        
-        if is_peft_model:
-            print("Detected PEFT model. Loading base model and adapter...")
-            
-            # Load tokenizer from base model (not from adapter path)
-            self.tokenizer = AutoTokenizer.from_pretrained(
-                MODEL_CONFIG["base_model"], 
-                trust_remote_code=True
-            )
-            
-            # Load base model
-            base_model = AutoModelForCausalLM.from_pretrained(
-                MODEL_CONFIG["base_model"],
-                torch_dtype=torch.float16,
-                device_map="auto",
-                trust_remote_code=True
-            )
-            
-            # Load PEFT adapter
-            self.model = PeftModel.from_pretrained(base_model, model_path)
-            
-            # Optional: Merge adapter with base model for faster inference
-            print("Merging adapter with base model...")
-            self.model = self.model.merge_and_unload()
-            
-        else:
-            print("Loading full fine-tuned model...")
-            # Load tokenizer from saved model path
-            self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-            
-            # Load full model
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_path,
-                torch_dtype=torch.float16,
-                device_map="auto",
-                trust_remote_code=True
-            )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         
         # Set pad token if not set
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
+        
+        # Check if this is a PEFT model
+        if os.path.exists(os.path.join(model_path, "adapter_config.json")):
+            print("Loading base model and PEFT adapter...")
+            base_model = AutoModelForCausalLM.from_pretrained(
+                MODEL_CONFIG["base_model"],
+                torch_dtype=torch.float32,
+                device_map=None,
+                trust_remote_code=True
+            )
+            self.model = PeftModel.from_pretrained(base_model, model_path)
+        else:
+            print("Loading full model...")
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_path,
+                torch_dtype=torch.float32,
+                device_map=None,
+                trust_remote_code=True
+            )
         
         # Put model in evaluation mode
         self.model.eval()
@@ -174,6 +154,7 @@ class ProductRecommender:
             with torch.no_grad():
                 outputs = self.model.generate(
                     inputs['input_ids'],
+                    attention_mask=inputs['attention_mask'],
                     max_length=max_length,
                     temperature=temperature,
                     top_p=top_p,
