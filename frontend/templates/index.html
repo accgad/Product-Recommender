@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Recommender Chatbot</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            height: 100%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chat-container {
+            flex: 7;
+            display: flex;
+            flex-direction: column;
+            background-color: white;
+        }
+        
+        .product-container {
+            flex: 3;
+            background-color: #f9f9f9;
+            border-left: 1px solid #e0e0e0;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .chat-header {
+            padding: 20px;
+            background-color: #4a6fa5;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 15px;
+            background-color: white;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .chat-input button {
+            padding: 0 20px;
+            margin-left: 10px;
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        
+        .user-message {
+            background-color: #e1f5fe;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        
+        .bot-message {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+        
+        .product-details {
+            background-color: white;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .product-details h3 {
+            margin-top: 0;
+            color: #4a6fa5;
+        }
+        
+        .rating {
+            color: #ff9800;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .review {
+            background-color: #f9f9f9;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top-color: #4a6fa5;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .typing-indicator {
+            padding: 10px 15px;
+            background-color: #f1f1f1;
+            border-radius: 18px;
+            display: inline-flex;
+            align-items: center;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            margin: 0 2px;
+            background-color: #8e8e8e;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.3s ease-in-out infinite;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.15s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chat-container">
+            <div class="chat-header">
+                Product Recommender Chatbot
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="message bot-message">
+                    Hello! I'm a product recommendation assistant. Tell me what you're looking for, and I'll suggest products that match your needs.
+                </div>
+                <div class="typing-indicator" id="typingIndicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="userInput" placeholder="Ask about products..." autocomplete="off">
+                <button id="sendButton">Send</button>
+            </div>
+        </div>
+        <div class="product-container" id="productContainer">
+            <h2>Recommended Product</h2>
+            <div id="productDetails"></div>
+        </div>
+    </div>
+
+    <script>
+        // Variables
+        let conversationId = null;
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const productContainer = document.getElementById('productContainer');
+        const productDetails = document.getElementById('productDetails');
+        const typingIndicator = document.getElementById('typingIndicator');
+        
+        // Initialize chat
+        initializeChat();
+        
+        // Event listeners
+        sendButton.addEventListener('click', sendMessage);
+        userInput.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+        
+        // Functions
+        async function initializeChat() {
+            try {
+                // Start conversation
+                const response = await fetch('/api/chat/start', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                conversationId = data.conversation_id;
+            } catch (error) {
+                console.error('Error initializing chat:', error);
+                addMessage('Sorry, I\'m having trouble connecting to the server. Please try again later.', 'bot');
+            }
+        }
+        
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message to chat
+            addMessage(message, 'user');
+            
+            // Clear input
+            userInput.value = '';
+            
+            // Show typing indicator
+            typingIndicator.style.display = 'inline-flex';
+            
+            try {
+                // Send message to API
+                const response = await fetch(`/api/chat/${conversationId}/message`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message })
+                });
+                
+                // Hide typing indicator
+                typingIndicator.style.display = 'none';
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Add bot response to chat
+                addMessage(data.content, 'bot');
+                
+                // Display product details if available
+                if (data.product) {
+                    showProductDetails(data.product);
+                } else {
+                    productContainer.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error sending message:', error);
+                typingIndicator.style.display = 'none';
+                addMessage('Sorry, I couldn\'t process your request. Please try again.', 'bot');
+            }
+        }
+        
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.textContent = content;
+            
+            chatMessages.insertBefore(messageDiv, typingIndicator);
+            
+            // Scroll to bottom
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function showProductDetails(product) {
+            productContainer.style.display = 'block';
+            
+            const details = product.details;
+            
+            let html = `
+                <div class="product-details">
+                    <h3>Product ID: ${product.id}</h3>
+                    <div class="rating">Rating: ${details.avg_rating.toFixed(1)}/5.0</div>
+                    <h4>What customers say:</h4>
+            `;
+            
+            // Add reviews
+            if (details.summaries && details.summaries.length > 0) {
+                html += '<div class="reviews">';
+                for (let i = 0; i < Math.min(3, details.summaries.length); i++) {
+                    html += `<div class="review">"${details.summaries[i]}"</div>`;
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            
+            productDetails.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
